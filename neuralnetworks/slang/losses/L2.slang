@@ -28,28 +28,16 @@ public struct L2
     }
 
     [BackwardDifferentiable]
-    public float L2Relative(float4 pred, float4 ref)
+    public float L2Relative(float4 pred, float4 target, float4 scale)
     {
-        float4 diff = pred - ref;
-        float l2err = sqrt(dot(diff, diff));
-        float l2ref = sqrt(dot(ref, ref));
-        return l2err / (l2ref + 1e-6f);
+        float4 diff = pred - target;
+        float4 denom = pred * pred + 0.01f.xxxx;
+        float4 v = scale * (diff * diff) / denom;
+        return v.x + v.y + v.z + v.w;
     }
 
-    [BackwardDifferentiable]
-    public float L2RelativeWeighted(float4 pred, float4 ref, float4 w)
-    {
-        float4 d = pred - ref;
+    
 
-        // weighted squared norms
-        float err2 = dot(w, d * d);
-        float ref2 = dot(w, ref * ref);
-
-        float l2err = sqrt(err2);
-        float l2ref = sqrt(ref2);
-
-        return l2err / (l2ref + 1e-6f);
-    }
 }
 
 }

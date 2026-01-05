@@ -6,7 +6,6 @@ __exported import NeuralNetworks;
 
 #define PI 3.14159265358979323846f
 #define COMPONENT_WEIGHTS float4(1.f, 10.f, 1.f, 5.f)
-#define NORMALIZED_COMPONENT_WEIGHTS (COMPONENT_WEIGHTS / dot(COMPONENT_WEIGHTS, 1.0f))
 
 struct RNG
 {
@@ -89,18 +88,14 @@ float4 evalModel<Model : IModel<float[5], float4>>(Model model,
 [BackwardDifferentiable]
 float evalModelLoss<Model : IModel<float[5], float4>>(Model model,
                                                       no_diff float NdotL, no_diff float NdotV, no_diff float NdotH, no_diff float LdotH, no_diff float roughness,
-                                                      no_diff float4 targetColor)
+                                                      no_diff float4 target)
 
 {
-   
-    let lossFunc = Losses::L2();
 
-    float4 p = model.forward(float[5](NdotL, NdotV, NdotH, LdotH, roughness));
-    float4 t = targetColor;
+    float4 pred = model.forward(float[5](NdotL, NdotV, NdotH, LdotH, roughness));
 
-    return lossFunc.L2Relative(p, t);
+    return Losses.L2().L2Relative(pred, target, COMPONENT_WEIGHTS);
 }
-
 
 void trainBRDF<Model : IModel<float[5], float4>>(Model model,
                                                  inout RNG rng, float lossScale, int2 sampleCoord, int2 batchDim, RWStructuredBuffer<float> lossOut)
@@ -127,17 +122,7 @@ void trainBRDF<Model : IModel<float[5], float4>>(Model model,
     float NdotH = H.z;
     float LdotH = dot(L, H);
 
-    float roughness;
-    if (rng.next1D() < 0.5f)
-        roughness = rng.next1D();
-    else
-    {
-        float u = rng.next1D();
-        roughness = 1.0f - (u * u);
-    }
-
-    roughness = max(0.02f, roughness);
-
+    float roughness = 0.3f + 0.7f * rng.next1D();
     float4 targetColor = DisneyBRDF(NdotL, NdotV, NdotH, LdotH, roughness);
 
     float loss = evalModelLoss(model,
@@ -261,7 +246,6 @@ float4 computeBRDF(Camera camera, Properties properties, int2 pixelCoord)
     float NdotH = max(0.f, dot(N, H));
     float LdotH = max(0.f, dot(L, H));
 
-
     float4 outParams = DisneyBRDF(NdotL, NdotV, NdotH, LdotH, roughness);
 
     // if (all(pixelCoord == DEBUG_PIX))
@@ -338,19 +322,19 @@ float4 computeBRDFNeural<Model : IModel<float[5], float4>>(Model model, Camera c
     float4 outParams = evalModel(model, NdotL, NdotV, NdotH, LdotH, roughness);
     float4 outParamsRef = DisneyBRDF(NdotL, NdotV, NdotH, LdotH, roughness);
 
-    // if (all(pixelCoord == DEBUG_PIX))
-    // {
-    //     float4 diff = outParams - outParamsRef;
-    //     float4 absd = abs(diff);
+    if (all(pixelCoord == DEBUG_PIX))
+    {
+        float4 diff = outParams - outParamsRef;
+        float4 absd = abs(diff);
 
-    //     print("DEBUG pix=({}, {})", pixelCoord.x, pixelCoord.y);
-    //     print("inputs: NdotL={} NdotV={} NdotH={} LdotH={} rough={}",
-    //           NdotL, NdotV, NdotH, LdotH, roughness);
+        print("DEBUG pix=({}, {})", pixelCoord.x, pixelCoord.y);
+        print("inputs: NdotL={} NdotV={} NdotH={} LdotH={} rough={}",
+              NdotL, NdotV, NdotH, LdotH, roughness);
 
-    //     print("params nn  = [{}, {}, {}, {}]", outParams.x, outParams.y, outParams.z, outParams.w);
-    //     print("params ref = [{}, {}, {}, {}]", outParamsRef.x, outParamsRef.y, outParamsRef.z, outParamsRef.w);
-    //     print("abs diff   = [{}, {}, {}, {}]", absd.x, absd.y, absd.z, absd.w);
-    // }
+        print("params nn  = [{}, {}, {}, {}]", outParams.x, outParams.y, outParams.z, outParams.w);
+        print("params ref = [{}, {}, {}, {}]", outParamsRef.x, outParamsRef.y, outParamsRef.z, outParamsRef.w);
+        print("abs diff   = [{}, {}, {}, {}]", absd.x, absd.y, absd.z, absd.w);
+    }
 
     float3 Cdlin = pow(baseColor, 2.2f);
     float3 Cspec0 = lerp(specular * 0.08f.xxx, Cdlin, metallic);
