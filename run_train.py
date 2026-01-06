@@ -246,7 +246,7 @@ def build_ui(ctx: spy.ui.Context):
             "roughness",
             properties.r,
             lambda v: setattr(properties, "r", v),
-            0.0,
+            0.3,
             1.0,
         )
 
@@ -338,7 +338,7 @@ model.initialize(module, "float[5]")
 
 def build_optimizer():
     global optim, grad_scale
-    optim = nn.AdamOptimizer(learning_rate=0.001)
+    optim = nn.AdamOptimizer(learning_rate=0.005)
 
     grad_scale = 1.0
     if mlp_precison == nn.Real.half:
@@ -446,6 +446,7 @@ while app.process_events():
     offset += resolution + 10
 
     module.absDiff(reference_output, training_output, _result=difference_output)
+    # module.computeBRDFDifference(model, camera, properties, call_id(), _result=difference_output
     app.blit(
         difference_output,
         size=spy.int2(resolution, resolution),

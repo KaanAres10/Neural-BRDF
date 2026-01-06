@@ -6,6 +6,8 @@ __exported import NeuralNetworks;
 
 #define PI 3.14159265358979323846f
 #define COMPONENT_WEIGHTS float4(1.f, 10.f, 1.f, 5.f)
+#define DEBUG_MODE 0
+#define DEBUG_PIX int2(444, 308)
 
 struct RNG
 {
@@ -248,14 +250,6 @@ float4 computeBRDF(Camera camera, Properties properties, int2 pixelCoord)
 
     float4 outParams = DisneyBRDF(NdotL, NdotV, NdotH, LdotH, roughness);
 
-    // if (all(pixelCoord == DEBUG_PIX))
-    // {
-
-    //     print("NdotL={}, NdotV={}, NdotH={}, LdotH={}, roughness={}",
-    //           NdotL, NdotV, NdotH, LdotH, roughness);
-    //     print("ref params = {}", outParams.w);
-    // }
-
     float3 Cdlin = pow(baseColor, 2.2f);
     float3 Cspec0 = lerp(specular * 0.08f.xxx, Cdlin, metallic);
 
@@ -269,7 +263,6 @@ float4 computeBRDF(Camera camera, Properties properties, int2 pixelCoord)
     return float4(color, 1.0f);
 }
 
-static const int2 DEBUG_PIX = int2(444, 308);
 
 // BRDF function called from python, called for each pixel in the window. This
 // tests if the pixelCoord is inside a sphere centered at world space (0,0) and
@@ -322,19 +315,21 @@ float4 computeBRDFNeural<Model : IModel<float[5], float4>>(Model model, Camera c
     float4 outParams = evalModel(model, NdotL, NdotV, NdotH, LdotH, roughness);
     float4 outParamsRef = DisneyBRDF(NdotL, NdotV, NdotH, LdotH, roughness);
 
-    if (all(pixelCoord == DEBUG_PIX))
-    {
-        float4 diff = outParams - outParamsRef;
-        float4 absd = abs(diff);
+    #if DEBUG_MODE
+        if (all(pixelCoord == DEBUG_PIX))
+        {
+            float4 diff = outParams - outParamsRef;
+            float4 absd = abs(diff);
 
-        print("DEBUG pix=({}, {})", pixelCoord.x, pixelCoord.y);
-        print("inputs: NdotL={} NdotV={} NdotH={} LdotH={} rough={}",
-              NdotL, NdotV, NdotH, LdotH, roughness);
+            print("DEBUG pix=({}, {})", pixelCoord.x, pixelCoord.y);
+            print("inputs: NdotL={} NdotV={} NdotH={} LdotH={} rough={}",
+                NdotL, NdotV, NdotH, LdotH, roughness);
 
-        print("params nn  = [{}, {}, {}, {}]", outParams.x, outParams.y, outParams.z, outParams.w);
-        print("params ref = [{}, {}, {}, {}]", outParamsRef.x, outParamsRef.y, outParamsRef.z, outParamsRef.w);
-        print("abs diff   = [{}, {}, {}, {}]", absd.x, absd.y, absd.z, absd.w);
-    }
+            print("params nn  = [{}, {}, {}, {}]", outParams.x, outParams.y, outParams.z, outParams.w);
+            print("params ref = [{}, {}, {}, {}]", outParamsRef.x, outParamsRef.y, outParamsRef.z, outParamsRef.w);
+            print("abs diff   = [{}, {}, {}, {}]", absd.x, absd.y, absd.z, absd.w);
+        }
+    #endif
 
     float3 Cdlin = pow(baseColor, 2.2f);
     float3 Cspec0 = lerp(specular * 0.08f.xxx, Cdlin, metallic);
@@ -347,6 +342,63 @@ float4 computeBRDFNeural<Model : IModel<float[5], float4>>(Model model, Camera c
     float3 color = brdfn * NdotL * lightIntensity;
 
     return float4(color, 1.0f);
+}
+
+float3 calcColor(float4 params, Properties properties, float3 lightIntensity)
+{
+    float3 baseColor = max(properties.baseColor, 0.0f.xxx); // avoid pow NaNs
+    float3 Cdlin = pow(baseColor, 2.2f);
+    float3 Cspec0 = lerp(properties.specular * 0.08f.xxx, Cdlin, properties.metallic);
+
+    float3 brdfn =
+        params.x * Cdlin * (1.0f - properties.metallic) +
+        params.y * lerp(Cspec0, 1.0f.xxx, params.z) +
+        params.w;
+
+    return clamp(brdfn * lightIntensity, 0.0f, 1.0f);
+}
+
+float4 computeBRDFDifference<Model : IModel<float[5], float4>>(
+    Model model, Camera camera, Properties properties, int2 pixelCoord)
+{
+    float4 outColor = float4(0, 0, 0, 0);
+
+    float3 cameraPos = float3(0.0, 0.0, 2.0f);
+    float3 lightDir = normalize(float3(-0.761f, -0.467f, -0.450f));
+    float3 L = normalize(-lightDir);
+    float3 lightIntensity = float3(1, 1, 1);
+
+    float2 fragCoord = float2(pixelCoord);
+    fragCoord.y = camera.frameDim.y - fragCoord.y;
+    float2 screenSample = fragCoord.xy + 0.5;
+    float2 worldSample = camera.screenToWorld(screenSample);
+
+    float front = 0, back = 0;
+    bool hit = sphereIntersection(float3(0.0), 0.5, float3(worldSample.xy, 1.0), front, back);
+    if (!hit)
+        return outColor;
+
+    float3 P = float3(worldSample, front);
+    float3 V = normalize(cameraPos - P);
+    float3 N = normalize(P);
+
+    float3 H = normalize(L + V);
+    float NdotL = max(0.f, dot(N, L));
+    float NdotV = max(0.f, dot(N, V));
+    float NdotH = max(0.f, dot(N, H));
+    float LdotH = max(0.f, dot(L, H));
+
+    float roughness = properties.roughness;
+
+    float4 refParams = DisneyBRDF(NdotL, NdotV, NdotH, LdotH, roughness);
+    float4 nnParams = evalModel(model, NdotL, NdotV, NdotH, LdotH, roughness);
+
+    float3 refRGB = calcColor(refParams, properties, lightIntensity);
+    float3 nnRGB = calcColor(nnParams, properties, lightIntensity);
+
+    float3 diffVis = (refRGB - nnRGB) * (NdotL * 4.0f) + 0.5f;
+
+    return float4(diffVis, 1.0f);
 }
 
 // Below are ray-sphere intersection test equations.

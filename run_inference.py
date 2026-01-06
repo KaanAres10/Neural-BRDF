@@ -131,7 +131,7 @@ def find_latest_model_path(preferred_path: str) -> str | None:
     epoch_files = [x for x in epoch_files if x[1] >= 0]
     if epoch_files:
         epoch_files.sort(key=lambda x: x[1])
-        return epoch_files[-1][0]  
+        return epoch_files[-1][0]
 
     npz_files.sort(key=lambda p: os.path.getmtime(p))
     return npz_files[-1]
@@ -172,7 +172,7 @@ def choose_model_file() -> str | None:
         return None
 
     root = tk.Tk()
-    root.withdraw() 
+    root.withdraw()
     root.attributes("-topmost", True)
 
     path = filedialog.askopenfilename(
@@ -195,7 +195,7 @@ def build_ui(ctx: spy.ui.Context):
         build_ui.bar = spy.ui.Window(
             ctx.screen,
             title="Panels",
-            position=spy.float2(0, 0), 
+            position=spy.float2(0, 0),
             size=spy.float2(resolution, 75),
         )
         spy.ui.Text(
@@ -210,7 +210,7 @@ def build_ui(ctx: spy.ui.Context):
             position=spy.float2(0, 700),
             size=spy.float2(resolution, 350),
         )
-          
+
         def do_load():
             global save_status, save_status_until, paused
 
@@ -236,7 +236,7 @@ def build_ui(ctx: spy.ui.Context):
             "roughness",
             properties.r,
             lambda v: setattr(properties, "r", v),
-            0.0,
+            0.3,
             1.0,
         )
 
@@ -317,9 +317,7 @@ model = nn.ModelChain(
 module = Module.load_from_file(device, "brdf.slang")
 model.initialize(module, "float[5]")
 try:
-    chosen = load_model(
-        model, model_path
-    ) 
+    chosen = load_model(model, model_path)
     print(f"Using: {chosen}")
 except Exception as e:
     print(f"No model loaded: {e}")
@@ -362,8 +360,8 @@ while app.process_events():
     timer.stop()
 
     now = time.time()
-    if now - last_update > 0.25: 
-        dt = timer.elapsed() 
+    if now - last_update > 0.25:
+        dt = timer.elapsed()
         fps = 0.0 if dt <= 0 else 1.0 / dt
 
         app.window.title = f"Neural BRDF | {fps:6.1f} FPS"
