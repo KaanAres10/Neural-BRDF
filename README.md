@@ -48,11 +48,6 @@ The model uses:
 ## Driver Requirements
 If supported, the project uses **Cooperative Vectors** for accelerated neural network execution.
 
-#### DirectX 12
-- Using the DirectX Preview Agility SDK requires a shader model 6.9 preview driver:
-	- [GeForce](https://developer.nvidia.com/downloads/shadermodel6-9-preview-driver)  
-	- [Quadro](https://developer.nvidia.com/downloads/assets/secure/shadermodel6-9-preview-driver-quadro)
-
 #### Vulkan
 - Vulkan Cooperative Vector extension requires a release [driver](https://www.nvidia.com/en-gb/geforce/drivers) from R570 onwards
 
