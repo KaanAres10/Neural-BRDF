@@ -2,7 +2,8 @@
 
 This project approximates a **Disney BRDF** using a small MLP running on the shaders via **Slang and SlangPy** using Cooperative Vectors.  
 
-It is based on **NVIDIA Neural Shading SDK** and adapted to **SlangPy** version.
+It is based on [**NVIDIA Neural Shading SDK**](https://github.com/NVIDIA-RTX/RTXNS
+) and adapted to **SlangPy** version.
 
 The repo contains:
 - **Training Mode**: It shows **Reference / Neural / Difference** side by side while optimizing the network
@@ -75,7 +76,7 @@ To Run Inference
 ```bash
 python run_inference.py 
 ```
-
+> Inference requires a previously saved model from the training step.
 
 ## Adapted From
 
