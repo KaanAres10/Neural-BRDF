@@ -200,7 +200,7 @@ def build_ui(ctx: spy.ui.Context):
         )
         spy.ui.Text(
             build_ui.bar,
-            "Neural".rjust(60),
+            "Neural".rjust(72),
         )
 
         # --- Main UI window ---

@@ -410,8 +410,8 @@ while app.process_events():
     finite = loss_np[np.isfinite(loss_np)]
     mean_loss = float(np.mean(finite)) if finite.size > 0 else float("nan")
 
-    # if epoch % print_every == 0:
-    #     print(f"[epoch {epoch:05d}] mean loss = {mean_loss:.6e}")
+    if epoch % print_every == 0:
+        print(f"[epoch {epoch:05d}] mean loss = {mean_loss:.6e}")
 
     epoch += 1
 
@@ -446,7 +446,7 @@ while app.process_events():
     offset += resolution + 10
 
     module.absDiff(reference_output, training_output, _result=difference_output)
-    # module.computeBRDFDifference(model, camera, properties, call_id(), _result=difference_output
+    # module.computeBRDFDifference(model, camera, properties, call_id(), _result=difference_output)
     app.blit(
         difference_output,
         size=spy.int2(resolution, resolution),
